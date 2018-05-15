@@ -70,8 +70,14 @@ int main(int argc, char* argv[])
   
     FILE *fp_yuv;  
     int ret, got_picture;  
-    char filepath[]="bigbuckbunny_480x272.h265";  
-  
+    //char filepath[]="bigbuckbunny_480x272.h265";  
+    char filepath[256]={0};
+
+    if(argc<=0){
+        goto error;
+    }
+    strcpy(filepath,argv[1]);
+    
     av_register_all();  
     avformat_network_init();  
       
@@ -79,11 +85,11 @@ int main(int argc, char* argv[])
   
     if(avformat_open_input(&pFormatCtx,filepath,NULL,NULL)!=0){  
         printf("Couldn't open input stream.\n");  
-        return -1;  
+        goto error;
     }  
     if(avformat_find_stream_info(pFormatCtx,NULL)<0){  
         printf("Couldn't find stream information.\n");  
-        return -1;  
+        goto error;
     }  
     videoindex=-1;  
     for(i=0; i<pFormatCtx->nb_streams; i++)   
@@ -93,17 +99,17 @@ int main(int argc, char* argv[])
         }  
     if(videoindex==-1){  
         printf("Didn't find a video stream.\n");  
-        return -1;  
+        goto error;
     }  
     pCodecCtx=pFormatCtx->streams[videoindex]->codec;  
     pCodec=avcodec_find_decoder(pCodecCtx->codec_id);  
     if(pCodec==NULL){  
         printf("Codec not found.\n");  
-        return -1;  
+        goto error; 
     }  
     if(avcodec_open2(pCodecCtx, pCodec,NULL)<0){  
         printf("Could not open codec.\n");  
-        return -1;  
+        goto error;
     }  
       
     pFrame=av_frame_alloc();  
@@ -113,7 +119,7 @@ int main(int argc, char* argv[])
     //SDL----------------------------  
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER)) {    
         printf( "Could not initialize SDL - %s\n", SDL_GetError());   
-        return -1;  
+        goto error;
     }   
   
       
@@ -131,7 +137,7 @@ int main(int argc, char* argv[])
   
     if(!screen) {    
         printf("SDL: could not set video mode - exiting:%s\n",SDL_GetError());    
-        return -1;  
+        goto error;
     }  
   
     bmp = SDL_CreateYUVOverlay(pCodecCtx->width, pCodecCtx->height,SDL_YV12_OVERLAY, screen);   
@@ -163,7 +169,7 @@ int main(int argc, char* argv[])
             ret = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, packet);  
             if(ret < 0){  
                 printf("Decode Error.\n");  
-                return -1;  
+                goto error;
             }  
             if(got_picture){  
                 SDL_LockYUVOverlay(bmp);  
@@ -218,7 +224,7 @@ int main(int argc, char* argv[])
         SDL_UnlockYUVOverlay(bmp);   
         SDL_DisplayYUVOverlay(bmp, &rect);   
         //Delay 40ms  
-        SDL_Delay(40);  
+        //SDL_Delay(40);  
     }  
   
     sws_freeContext(img_convert_ctx);  
@@ -234,5 +240,9 @@ int main(int argc, char* argv[])
     avcodec_close(pCodecCtx);  
     avformat_close_input(&pFormatCtx);  
   
-    return 0;  
+    return 0; 
+
+error:
+    return -1;
+
 }  
