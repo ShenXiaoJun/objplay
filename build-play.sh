@@ -11,5 +11,5 @@ $output/lib/libpostproc.so \
 $output/lib/libswresample.so \
 $output/lib/libswscale.so"
 
-gcc simplest_ffmpeg_player.c $ffpemglibs -I$output/include -L$output/lib -lSDL -lm -lpthread -lz -Wno-error -o $output/bin/player.x86
+gcc $submodules/obj_play/obj_play.c $ffpemglibs -I$output/include -L$output/lib -lSDL2 -lm -lpthread -lz -Wno-error -o $output/bin/player.x86
 #gcc simplest_ffmpeg_player.c -lSDL -lm -lpthread -lz -Wno-error -o $output/bin/player.x86
