@@ -121,9 +121,7 @@ int main(int argc, char* argv[])
     SDL_Event event;  
   
     struct SwsContext *img_convert_ctx;  
-  
-    //char filepath[]="bigbuckbunny_480x272.h265";  
-    //char filepath[]="Titanic.ts";  
+    
     char filepath[256]={0};
 
 	if(argc <= 1){
@@ -230,8 +228,8 @@ int main(int argc, char* argv[])
                 //SDL---------------------------  
                 #if 1
                 SDL_UpdateTexture( sdlTexture, NULL, pFrameYUV->data[0], pFrameYUV->linesize[0] );    
-				#else
-				SDL_UpdateYUVTexture(sdlTexture, &sdlRect,  
+                #else
+                SDL_UpdateYUVTexture(sdlTexture, &sdlRect,  
 	                pFrameYUV->data[0], pFrameYUV->linesize[0],  
 	                pFrameYUV->data[1], pFrameYUV->linesize[1],  
 	                pFrameYUV->data[2], pFrameYUV->linesize[2]);  
