@@ -116,7 +116,9 @@ int main(int argc, char* argv[])
     SDL_Window *screen=NULL;   
     SDL_Renderer* sdlRenderer=NULL;  
     SDL_Texture* sdlTexture=NULL;  
+    SDL_Texture* sdlTexture_2=NULL;  
     SDL_Rect sdlRect;  
+	SDL_Rect sdlRect_2;
     SDL_Thread *video_tid=NULL;  
     SDL_Event event;  
   
@@ -141,6 +143,7 @@ int main(int argc, char* argv[])
         printf("Couldn't find stream information.\n");  
         return -1;  
     }  
+    printf("%s,%d,nb_streams:%d\n",__func__,__LINE__,pFormatCtx->nb_streams);
     videoindex=-1;  
     for(i=0; i<pFormatCtx->nb_streams; i++)   
         if(pFormatCtx->streams[i]->codec->codec_type==AVMEDIA_TYPE_VIDEO){  
@@ -195,11 +198,17 @@ int main(int argc, char* argv[])
     //IYUV: Y + U + V  (3 planes)  
     //YV12: Y + V + U  (3 planes)  
     sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,pCodecCtx->width,pCodecCtx->height);    
+    sdlTexture_2 = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,pCodecCtx->width,pCodecCtx->height);    
   
-	sdlRect.x=0;  
+    sdlRect.x=0;  
     sdlRect.y=0;  
-	sdlRect.w=pCodecCtx->width;  
+    sdlRect.w=pCodecCtx->width;  
     sdlRect.h=pCodecCtx->height;  
+
+    sdlRect_2.x=pCodecCtx->width;  
+    sdlRect_2.y=0;  
+    sdlRect_2.w=pCodecCtx->width;  
+    sdlRect_2.h=pCodecCtx->height;  
   
     packet=(AVPacket *)av_malloc(sizeof(AVPacket));  
   
@@ -227,7 +236,9 @@ int main(int argc, char* argv[])
                 sws_scale(img_convert_ctx, (const unsigned char* const*)pFrame->data, pFrame->linesize, 0, pCodecCtx->height, pFrameYUV->data, pFrameYUV->linesize);  
                 //SDL---------------------------  
                 #if 1
-                SDL_UpdateTexture( sdlTexture, NULL, pFrameYUV->data[0], pFrameYUV->linesize[0] );    
+                //SDL_UpdateTexture( sdlTexture, NULL, pFrameYUV->data[0], pFrameYUV->linesize[0] );    
+                SDL_UpdateTexture( sdlTexture, &sdlRect, pFrameYUV->data[0], pFrameYUV->linesize[0] );    
+                SDL_UpdateTexture( sdlTexture_2, &sdlRect_2, pFrameYUV->data[0], pFrameYUV->linesize[0] );    
                 #else
                 SDL_UpdateYUVTexture(sdlTexture, &sdlRect,  
 	                pFrameYUV->data[0], pFrameYUV->linesize[0],  
@@ -235,8 +246,10 @@ int main(int argc, char* argv[])
 	                pFrameYUV->data[2], pFrameYUV->linesize[2]);  
 				#endif
                 SDL_RenderClear( sdlRenderer );    
-                SDL_RenderCopy( sdlRenderer, sdlTexture, &sdlRect, &sdlRect );    
+                //SDL_RenderCopy( sdlRenderer, sdlTexture, &sdlRect, &sdlRect );    
+                SDL_RenderCopy( sdlRenderer, sdlTexture_2, &sdlRect_2, &sdlRect_2 );    
                 //SDL_RenderCopy( sdlRenderer, sdlTexture, NULL, NULL);    
+                //SDL_RenderCopy( sdlRenderer, sdlTexture_2, NULL, NULL);
                 SDL_RenderPresent( sdlRenderer );    
                 //SDL End-----------------------  
             }  
