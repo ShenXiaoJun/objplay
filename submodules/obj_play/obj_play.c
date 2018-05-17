@@ -97,171 +97,223 @@ int sfp_refresh_thread(void *opaque){
   
     return 0;  
 }  
-  
-  
-int main(int argc, char* argv[])  
-{  
-  
-    AVFormatContext *pFormatCtx=NULL;  
-    int             i=0, videoindex=0;  
-    AVCodecContext  *pCodecCtx=NULL;  
-    AVCodec         *pCodec=NULL;  
-    AVFrame *pFrame=NULL,*pFrameYUV=NULL;  
-    unsigned char *out_buffer=NULL;  
-    AVPacket *packet=NULL;  
-    int ret=0, got_picture=0;  
-  
-    //------------SDL----------------  
-    int screen_w=0,screen_h=0;  
-    SDL_Window *screen=NULL;   
-    SDL_Renderer* sdlRenderer=NULL;  
-    SDL_Texture* sdlTexture=NULL;  
-    SDL_Texture* sdlTexture_2=NULL;  
-    SDL_Rect sdlRect;  
-	SDL_Rect sdlRect_2;
-    SDL_Thread *video_tid=NULL;  
-    SDL_Event event;  
-  
-    struct SwsContext *img_convert_ctx;  
-    
-    char filepath[256]={0};
 
-	if(argc <= 1){
-		goto error;
-	}
-	strcpy(filepath,argv[1]);
-  
-    av_register_all();  
-    avformat_network_init();  
-    pFormatCtx = avformat_alloc_context();  
-  
-    if(avformat_open_input(&pFormatCtx,filepath,NULL,NULL)!=0){  
-        printf("Couldn't open input stream.\n");  
-        return -1;  
-    }  
-    if(avformat_find_stream_info(pFormatCtx,NULL)<0){  
-        printf("Couldn't find stream information.\n");  
-        return -1;  
-    }  
-    printf("%s,%d,nb_streams:%d\n",__func__,__LINE__,pFormatCtx->nb_streams);
-    videoindex=-1;  
+struct __obj_av
+{
+    AVFormatContext *pFormatCtx;  
+    int             videoindex;  
+    AVCodecContext  *pCodecCtx;  
+    AVCodec         *pCodec;  
+    AVFrame         *pFrame;
+    AVFrame         *pFrameYUV;
+    unsigned char   *out_buffer;  
+    AVPacket        *packet;
+};
+typedef struct __obj_av _obj_av;
+
+struct __obj_sdl
+{
+    SDL_Window   *screen;   
+    SDL_Renderer *sdlRenderer;  
+    SDL_Texture  *sdlTexture_1;  
+    SDL_Texture  *sdlTexture_2;  
+    SDL_Texture  *sdlTexture_3;  
+    SDL_Texture  *sdlTexture_4;  
+    SDL_Rect     sdlRect_1;  
+    SDL_Rect     sdlRect_2;
+    SDL_Rect     sdlRect_3;
+    SDL_Rect     sdlRect_4;
+    SDL_Thread   *video_tid;  
+    SDL_Event    event;  
+};
+typedef struct __obj_sdl _obj_sdl;
+
+
+
+static void *obj_av_free(_obj_av *obj_av){
+    return NULL;
+}
+static int obj_av_get_videoindex(_obj_av *obj_av){
+    AVFormatContext *pFormatCtx=obj_av->pFormatCtx;
+    int i=0,videoindex=-1;
     for(i=0; i<pFormatCtx->nb_streams; i++)   
         if(pFormatCtx->streams[i]->codec->codec_type==AVMEDIA_TYPE_VIDEO){  
             videoindex=i;  
             break;  
-        }  
-    if(videoindex==-1){  
+        }
+    return videoindex;
+}
+
+static _obj_av *obj_av_init(const char *filepath){
+    _obj_av *obj_av=calloc(1,sizeof(_obj_av));
+    av_register_all();  
+    avformat_network_init();  
+    obj_av->pFormatCtx = avformat_alloc_context();  
+    if(avformat_open_input(&obj_av->pFormatCtx,filepath,NULL,NULL)!=0){  
+        printf("Couldn't open input stream.\n");  
+        goto error;  
+    }  
+    if(avformat_find_stream_info(obj_av->pFormatCtx,NULL)<0){  
+        printf("Couldn't find stream information.\n");  
+        goto error;  
+    }        
+    obj_av->videoindex=obj_av_get_videoindex(obj_av);
+    if(obj_av->videoindex==-1){  
         printf("Didn't find a video stream.\n");  
-        return -1;  
+        goto error;  
     }  
-    pCodecCtx=pFormatCtx->streams[videoindex]->codec;  
-    pCodec=avcodec_find_decoder(pCodecCtx->codec_id);  
-    if(pCodec==NULL){  
+    obj_av->pCodecCtx=obj_av->pFormatCtx->streams[obj_av->videoindex]->codec;  
+    obj_av->pCodec=avcodec_find_decoder(obj_av->pCodecCtx->codec_id);  
+    if(obj_av->pCodec==NULL){  
         printf("Codec not found.\n");  
-        return -1;  
+        goto error;  
     }  
-    if(avcodec_open2(pCodecCtx, pCodec,NULL)<0){  
+    if(avcodec_open2(obj_av->pCodecCtx, obj_av->pCodec,NULL)<0){  
         printf("Could not open codec.\n");  
-        return -1;  
+        goto error;  
     }  
-    pFrame=av_frame_alloc();  
-    pFrameYUV=av_frame_alloc();  
+    obj_av->pFrame=av_frame_alloc();  
+    obj_av->pFrameYUV=av_frame_alloc();  
   
-    out_buffer=(unsigned char *)av_malloc(av_image_get_buffer_size(AV_PIX_FMT_YUV420P,  pCodecCtx->width, pCodecCtx->height,1));  
-    av_image_fill_arrays(pFrameYUV->data, pFrameYUV->linesize,out_buffer,  
-        AV_PIX_FMT_YUV420P,pCodecCtx->width, pCodecCtx->height,1);  
+    obj_av->out_buffer=(unsigned char *)av_malloc(av_image_get_buffer_size(
+        AV_PIX_FMT_YUV420P, obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1));  
+    av_image_fill_arrays(obj_av->pFrameYUV->data, obj_av->pFrameYUV->linesize,obj_av->out_buffer,  
+        AV_PIX_FMT_YUV420P,obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1);  
   
     //Output Info-----------------------------  
     printf("---------------- File Information ---------------\n");  
-    av_dump_format(pFormatCtx,0,filepath,0);  
-    printf("-------------------------------------------------\n");  
-      
-    img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt,   
-        pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);   
-      
-  
-    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER)) {    
+    av_dump_format(obj_av->pFormatCtx,0,filepath,0);  
+    printf("-------------------------------------------------\n");
+    return obj_av;
+error:
+    return NULL;
+}
+
+static _obj_sdl *obj_sdl_init(_obj_av *obj_av){
+    _obj_sdl *obj_sdl=calloc(1,sizeof(_obj_sdl));;
+	int screen_w=0,screen_h=0;
+	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER)) {    
         printf( "Could not initialize SDL - %s\n", SDL_GetError());   
-        return -1;  
+        goto error;  
     }   
     //SDL 2.0 Support for multiple windows  
-    screen_w = pCodecCtx->width * 2;  
-    screen_h = pCodecCtx->height * 2;  
-    screen = SDL_CreateWindow("Simplest ffmpeg player's Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,  
+    screen_w = obj_av->pCodecCtx->width * 2;  
+    screen_h = obj_av->pCodecCtx->height * 2;  
+    obj_sdl->screen = SDL_CreateWindow("Simplest ffmpeg player's Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,  
         screen_w, screen_h,SDL_WINDOW_OPENGL);  
   
-    if(!screen) {    
+    if(!obj_sdl->screen) {    
         printf("SDL: could not create window - exiting:%s\n",SDL_GetError());    
-        return -1;  
+        goto error;  
     }  
-    sdlRenderer = SDL_CreateRenderer(screen, -1, 0);    
+    obj_sdl->sdlRenderer = SDL_CreateRenderer(obj_sdl->screen, -1, 0);    
     //IYUV: Y + U + V  (3 planes)  
     //YV12: Y + V + U  (3 planes)  
-    sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,pCodecCtx->width,pCodecCtx->height);    
-    sdlTexture_2 = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,pCodecCtx->width,pCodecCtx->height);    
+    obj_sdl->sdlTexture_1 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+        obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
+    obj_sdl->sdlTexture_2 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+        obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
+	obj_sdl->sdlTexture_3 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+        obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
+	obj_sdl->sdlTexture_4 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+        obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
   
-    sdlRect.x=0;  
-    sdlRect.y=0;  
-    sdlRect.w=pCodecCtx->width;  
-    sdlRect.h=pCodecCtx->height;  
+    obj_sdl->sdlRect_1.x=0;  
+    obj_sdl->sdlRect_1.y=0;  
+    obj_sdl->sdlRect_1.w=obj_av->pCodecCtx->width;  
+    obj_sdl->sdlRect_1.h=obj_av->pCodecCtx->height;  
 
-    sdlRect_2.x=pCodecCtx->width;  
-    sdlRect_2.y=0;  
-    sdlRect_2.w=pCodecCtx->width;  
-    sdlRect_2.h=pCodecCtx->height;  
+    obj_sdl->sdlRect_2.x=obj_av->pCodecCtx->width;  
+    obj_sdl->sdlRect_2.y=0;  
+    obj_sdl->sdlRect_2.w=obj_av->pCodecCtx->width;  
+    obj_sdl->sdlRect_2.h=obj_av->pCodecCtx->height;
+
+	obj_sdl->sdlRect_3.x=0;  
+    obj_sdl->sdlRect_3.y=obj_av->pCodecCtx->height;  
+    obj_sdl->sdlRect_3.w=obj_av->pCodecCtx->width;  
+    obj_sdl->sdlRect_3.h=obj_av->pCodecCtx->height;
+
+	obj_sdl->sdlRect_4.x=obj_av->pCodecCtx->width;  
+    obj_sdl->sdlRect_4.y=obj_av->pCodecCtx->height;  
+    obj_sdl->sdlRect_4.w=obj_av->pCodecCtx->width;  
+    obj_sdl->sdlRect_4.h=obj_av->pCodecCtx->height;
   
-    packet=(AVPacket *)av_malloc(sizeof(AVPacket));  
+    obj_av->packet=(AVPacket *)av_malloc(sizeof(AVPacket));  
   
-    video_tid = SDL_CreateThread(sfp_refresh_thread,NULL,NULL);  
+    obj_sdl->video_tid = SDL_CreateThread(sfp_refresh_thread,NULL,NULL); 
+	
+    return obj_sdl;
+error:
+    return NULL;
+}
+
+int main(int argc, char* argv[])  
+{  
+    int decode_ret=0, got_picture=0;  
+    _obj_av *obj_av=NULL;
+	
+    struct SwsContext *img_convert_ctx;    
+    //------------SDL---------------- 
+	_obj_sdl *obj_sdl=NULL;
+	
+    char filepath[256]={0};
+
+	if(argc <= 1)
+		goto error;
+	strcpy(filepath,argv[1]);
+	obj_av=obj_av_init(filepath);
+	if(obj_av==NULL)
+        goto error;
+    obj_sdl=obj_sdl_init(obj_av);
+	if(obj_sdl==NULL)
+		goto error;
+    img_convert_ctx = sws_getContext(obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, obj_av->pCodecCtx->pix_fmt,   
+        obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);            
     //------------SDL End------------  
-    //Event Loop  
-      
+    //Event Loop        
     for (;;) {  
         //Wait  
-        SDL_WaitEvent(&event);  
-        if(event.type==SFM_REFRESH_EVENT){  
+        SDL_WaitEvent(&obj_sdl->event);  
+        if(obj_sdl->event.type==SFM_REFRESH_EVENT){  
             while(1){  
-                if(av_read_frame(pFormatCtx, packet)<0)  
+                if(av_read_frame(obj_av->pFormatCtx, obj_av->packet)<0)  
                     thread_exit=1;  
   
-                if(packet->stream_index==videoindex)  
+                if(obj_av->packet->stream_index==obj_av->videoindex)  
                     break;  
             }  
-            ret = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, packet);  
-            if(ret < 0){  
+            decode_ret = avcodec_decode_video2(obj_av->pCodecCtx, obj_av->pFrame, &got_picture, obj_av->packet);  
+            if(decode_ret < 0){  
                 printf("Decode Error.\n");  
-                return -1;  
+                goto error;  
             }  
             if(got_picture){  
-                sws_scale(img_convert_ctx, (const unsigned char* const*)pFrame->data, pFrame->linesize, 0, pCodecCtx->height, pFrameYUV->data, pFrameYUV->linesize);  
+                sws_scale(img_convert_ctx, (const unsigned char* const*)obj_av->pFrame->data, 
+					obj_av->pFrame->linesize, 0, obj_av->pCodecCtx->height, obj_av->pFrameYUV->data, obj_av->pFrameYUV->linesize);  
                 //SDL---------------------------  
-                #if 1
-                //SDL_UpdateTexture( sdlTexture, NULL, pFrameYUV->data[0], pFrameYUV->linesize[0] );    
-                SDL_UpdateTexture( sdlTexture, &sdlRect, pFrameYUV->data[0], pFrameYUV->linesize[0] );    
-                SDL_UpdateTexture( sdlTexture_2, &sdlRect_2, pFrameYUV->data[0], pFrameYUV->linesize[0] );    
-                #else
-                SDL_UpdateYUVTexture(sdlTexture, &sdlRect,  
-	                pFrameYUV->data[0], pFrameYUV->linesize[0],  
-	                pFrameYUV->data[1], pFrameYUV->linesize[1],  
-	                pFrameYUV->data[2], pFrameYUV->linesize[2]);  
-				#endif
-                SDL_RenderClear( sdlRenderer );    
-                //SDL_RenderCopy( sdlRenderer, sdlTexture, &sdlRect, &sdlRect );    
-                SDL_RenderCopy( sdlRenderer, sdlTexture_2, &sdlRect_2, &sdlRect_2 );    
-                //SDL_RenderCopy( sdlRenderer, sdlTexture, NULL, NULL);    
-                //SDL_RenderCopy( sdlRenderer, sdlTexture_2, NULL, NULL);
-                SDL_RenderPresent( sdlRenderer );    
+                SDL_UpdateTexture( obj_sdl->sdlTexture_1, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
+                SDL_UpdateTexture( obj_sdl->sdlTexture_2, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
+				SDL_UpdateTexture( obj_sdl->sdlTexture_3, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
+				SDL_UpdateTexture( obj_sdl->sdlTexture_4, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
+                
+                SDL_RenderClear( obj_sdl->sdlRenderer );    
+                SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_1, NULL, &obj_sdl->sdlRect_1 );    
+                SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_2, NULL, &obj_sdl->sdlRect_2 );    
+                SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_3, NULL, &obj_sdl->sdlRect_3 );    
+                SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_4, NULL, &obj_sdl->sdlRect_4 );    
+                //SDL_RenderCopy( sdlRenderer, sdlTexture, NULL, NULL);   
+                SDL_RenderPresent( obj_sdl->sdlRenderer );    
                 //SDL End-----------------------  
             }  
-            av_free_packet(packet);  
+            av_free_packet(obj_av->packet);  
         }
-		else if(event.type==SDL_KEYDOWN){  
+		else if(obj_sdl->event.type==SDL_KEYDOWN){  
             //Pause  
-            if(event.key.keysym.sym==SDLK_SPACE)  
+            if(obj_sdl->event.key.keysym.sym==SDLK_SPACE)  
                 thread_pause=!thread_pause;  
-        }else if(event.type==SDL_QUIT){  
+        }else if(obj_sdl->event.type==SDL_QUIT){  
             thread_exit=1;  
-        }else if(event.type==SFM_BREAK_EVENT){  
+        }else if(obj_sdl->event.type==SFM_BREAK_EVENT){  
             break;  
         }  
   
@@ -271,10 +323,10 @@ int main(int argc, char* argv[])
   
     SDL_Quit();  
     //--------------  
-    av_frame_free(&pFrameYUV);  
-    av_frame_free(&pFrame);  
-    avcodec_close(pCodecCtx);  
-    avformat_close_input(&pFormatCtx);  
+    av_frame_free(&obj_av->pFrameYUV);  
+    av_frame_free(&obj_av->pFrame);  
+    avcodec_close(obj_av->pCodecCtx);  
+    avformat_close_input(&obj_av->pFormatCtx);  
   
     return 0;  
 error:
