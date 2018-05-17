@@ -1,41 +1,13 @@
 /** 
- * 最简单的基于FFmpeg的视频播放器2(SDL升级版) 
- * Simplest FFmpeg Player 2(SDL Update) 
  * 
  * 雷霄骅 Lei Xiaohua 
  * leixiaohua1020@126.com 
- * 中国传媒大学/数字电视技术 
  * Communication University of China / Digital TV Technology 
  * http://blog.csdn.net/leixiaohua1020 
  * 
- * 第2版使用SDL2.0取代了第一版中的SDL1.2 
- * Version 2 use SDL 2.0 instead of SDL 1.2 in version 1. 
- * 
- * 本程序实现了视频文件的解码和显示(支持HEVC，H.264，MPEG2等)。 
- * 是最简单的FFmpeg视频解码方面的教程。 
- * 通过学习本例子可以了解FFmpeg的解码流程。 
- * 本版本中使用SDL消息机制刷新视频画面。 
- * This software is a simplest video player based on FFmpeg. 
- * Suitable for beginner of FFmpeg. 
- * 
- * 备注: 
- * 标准版在播放视频的时候，画面显示使用延时40ms的方式。这么做有两个后果： 
- * （1）SDL弹出的窗口无法移动，一直显示是忙碌状态 
- * （2）画面显示并不是严格的40ms一帧，因为还没有考虑解码的时间。 
- * SU（SDL Update）版在视频解码的过程中，不再使用延时40ms的方式，而是创建了 
- * 一个线程，每隔40ms发送一个自定义的消息，告知主函数进行解码显示。这样做之后： 
- * （1）SDL弹出的窗口可以移动了 
- * （2）画面显示是严格的40ms一帧 
- * Remark: 
- * Standard Version use's SDL_Delay() to control video's frame rate, it has 2 
- * disadvantages: 
- * (1)SDL's Screen can't be moved and always "Busy". 
- * (2)Frame rate can't be accurate because it doesn't consider the time consumed  
- * by avcodec_decode_video2() 
- * SU（SDL Update）Version solved 2 problems above. It create a thread to send SDL  
- * Event every 40ms to tell the main loop to decode and show video frames. 
  *----------------------------------------------------------------------------------
- *shenxj fix
+ * shenxj fix
+ * 
  */  
   
 #include <stdio.h>  
@@ -106,7 +78,9 @@ struct __obj_av
     AVCodec         *pCodec;  
     AVFrame         *pFrame;
     AVFrame         *pFrameYUV;
-    unsigned char   *out_buffer;  
+	AVFrame         *pFrameRGB;
+    unsigned char   *out_buffer_yuv;  
+	unsigned char   *out_buffer_rgb;  
     AVPacket        *packet;
 };
 typedef struct __obj_av _obj_av;
@@ -174,11 +148,17 @@ static _obj_av *obj_av_init(const char *filepath){
     }  
     obj_av->pFrame=av_frame_alloc();  
     obj_av->pFrameYUV=av_frame_alloc();  
+	if(1)obj_av->pFrameRGB=av_frame_alloc();  
   
-    obj_av->out_buffer=(unsigned char *)av_malloc(av_image_get_buffer_size(
+    obj_av->out_buffer_yuv=(unsigned char *)av_malloc(av_image_get_buffer_size(
         AV_PIX_FMT_YUV420P, obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1));  
-    av_image_fill_arrays(obj_av->pFrameYUV->data, obj_av->pFrameYUV->linesize,obj_av->out_buffer,  
+    av_image_fill_arrays(obj_av->pFrameYUV->data, obj_av->pFrameYUV->linesize,obj_av->out_buffer_yuv,  
         AV_PIX_FMT_YUV420P,obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1);  
+
+	if(1)obj_av->out_buffer_rgb=(unsigned char *)av_malloc(av_image_get_buffer_size(
+        AV_PIX_FMT_RGB24, obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1));  
+	if(1)av_image_fill_arrays(obj_av->pFrameRGB->data, obj_av->pFrameRGB->linesize,obj_av->out_buffer_rgb,  
+        AV_PIX_FMT_RGB24,obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1);  
   
     //Output Info-----------------------------  
     printf("---------------- File Information ---------------\n");  
@@ -211,7 +191,7 @@ static _obj_sdl *obj_sdl_init(_obj_av *obj_av){
     //YV12: Y + V + U  (3 planes)  
     obj_sdl->sdlTexture_1 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
         obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
-    obj_sdl->sdlTexture_2 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+    obj_sdl->sdlTexture_2 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING,
         obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
 	obj_sdl->sdlTexture_3 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
         obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
@@ -252,10 +232,11 @@ int main(int argc, char* argv[])
     int decode_ret=0, got_picture=0;  
     _obj_av *obj_av=NULL;
 	
-    struct SwsContext *img_convert_ctx;    
+    struct SwsContext *img_convert_ctx_yuv420p; 
+	struct SwsContext *img_convert_ctx_rgb24;
     //------------SDL---------------- 
 	_obj_sdl *obj_sdl=NULL;
-	
+	FILE *outputfile=fopen("/home/shenxj/out.rgb","wb+");
     char filepath[256]={0};
 
 	if(argc <= 1)
@@ -267,8 +248,12 @@ int main(int argc, char* argv[])
     obj_sdl=obj_sdl_init(obj_av);
 	if(obj_sdl==NULL)
 		goto error;
-    img_convert_ctx = sws_getContext(obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, obj_av->pCodecCtx->pix_fmt,   
-        obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);            
+	printf("%s,%d,src_pix_fmt:%d\n",__func__,__LINE__,obj_av->pCodecCtx->pix_fmt);
+    img_convert_ctx_yuv420p = sws_getContext(obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, obj_av->pCodecCtx->pix_fmt,   
+        obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
+	img_convert_ctx_rgb24 = sws_getContext(obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, obj_av->pCodecCtx->pix_fmt,   
+        obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
+	
     //------------SDL End------------  
     //Event Loop        
     for (;;) {  
@@ -288,19 +273,22 @@ int main(int argc, char* argv[])
                 goto error;  
             }  
             if(got_picture){  
-                sws_scale(img_convert_ctx, (const unsigned char* const*)obj_av->pFrame->data, 
+                sws_scale(img_convert_ctx_yuv420p, (const unsigned char* const*)obj_av->pFrame->data, 
 					obj_av->pFrame->linesize, 0, obj_av->pCodecCtx->height, obj_av->pFrameYUV->data, obj_av->pFrameYUV->linesize);  
+				if(0)sws_scale(img_convert_ctx_rgb24, (const unsigned char* const*)obj_av->pFrame->data, 
+					obj_av->pFrame->linesize, 0, obj_av->pCodecCtx->height, obj_av->pFrameRGB->data, obj_av->pFrameRGB->linesize);  
                 //SDL---------------------------  
                 SDL_UpdateTexture( obj_sdl->sdlTexture_1, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
                 SDL_UpdateTexture( obj_sdl->sdlTexture_2, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
-				SDL_UpdateTexture( obj_sdl->sdlTexture_3, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
-				SDL_UpdateTexture( obj_sdl->sdlTexture_4, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
+				//SDL_UpdateTexture( obj_sdl->sdlTexture_3, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
+				//SDL_UpdateTexture( obj_sdl->sdlTexture_4, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
                 
                 SDL_RenderClear( obj_sdl->sdlRenderer );    
                 SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_1, NULL, &obj_sdl->sdlRect_1 );    
-                SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_2, NULL, &obj_sdl->sdlRect_2 );    
-                SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_3, NULL, &obj_sdl->sdlRect_3 );    
-                SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_4, NULL, &obj_sdl->sdlRect_4 );    
+				fwrite( obj_av->pFrameRGB->data[0],(obj_av->pCodecCtx->width)*(obj_av->pCodecCtx->height)*3,1,outputfile);
+                //SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_2, NULL, &obj_sdl->sdlRect_2 );    
+                //SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_3, NULL, &obj_sdl->sdlRect_3 );    
+                //SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_4, NULL, &obj_sdl->sdlRect_4 );    
                 //SDL_RenderCopy( sdlRenderer, sdlTexture, NULL, NULL);   
                 SDL_RenderPresent( obj_sdl->sdlRenderer );    
                 //SDL End-----------------------  
@@ -319,11 +307,13 @@ int main(int argc, char* argv[])
   
     }  
   
-    sws_freeContext(img_convert_ctx);  
+    sws_freeContext(img_convert_ctx_yuv420p);  
+	if(1)sws_freeContext(img_convert_ctx_rgb24);  
   
     SDL_Quit();  
     //--------------  
     av_frame_free(&obj_av->pFrameYUV);  
+	if(1)av_frame_free(&obj_av->pFrameRGB);  
     av_frame_free(&obj_av->pFrame);  
     avcodec_close(obj_av->pCodecCtx);  
     avformat_close_input(&obj_av->pFormatCtx);  
