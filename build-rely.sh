@@ -30,6 +30,9 @@ cd $work/ffmpeg-2.8.14 &&
 make -j &&
 make install &&
 
+TF_BINARY_URL="https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.0.0-cp27-none-linux_x86_64.whl" &&
+sudo pip install --upgrade $TF_BINARY_URL &&
+
 build_ok=true
 #print use time
 end=$(date +%s)
