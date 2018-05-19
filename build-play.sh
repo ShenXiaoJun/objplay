@@ -11,5 +11,18 @@ $output/lib/libpostproc.so \
 $output/lib/libswresample.so \
 $output/lib/libswscale.so"
 
-gcc $submodules/obj_play/obj_play.c $ffpemglibs -I$output/include -L$output/lib -lSDL2 -lm -lpthread -lz -Wno-error -o $output/bin/player.x86
-#gcc simplest_ffmpeg_player.c -lSDL -lm -lpthread -lz -Wno-error -o $output/bin/player.x86
+start=$(date +%s)
+build_ok=false
+
+gcc $submodules/obj_play/obj_play.c $ffpemglibs -I$output/include -L$output/lib -lSDL2 -lm -lpthread -lz -Wno-error -o $output/bin/player.x86 &&
+gcc obj_tf.c -ltensorflow -o $output/bin/obj_tf.x86 &&
+
+build_ok=true
+
+end=$(date +%s)
+time=$(( $end - $start ))
+if $build_ok; then
+	echo "OK! $time s"
+else
+	echo "Fail! $time s"
+fi
