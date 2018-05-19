@@ -1,6 +1,7 @@
 objplay_path=~+/
 submodules=$objplay_path/submodules
 output=$objplay_path/output
+obj_play=$submodules/obj_play
 
 ffpemglibs="$output/lib/libavcodec.so \
 $output/lib/libavdevice.so \
@@ -14,8 +15,8 @@ $output/lib/libswscale.so"
 start=$(date +%s)
 build_ok=false
 
-gcc $submodules/obj_play/obj_play.c $ffpemglibs -I$output/include -L$output/lib -lSDL2 -lm -lpthread -lz -Wno-error -o $output/bin/player.x86 &&
-gcc obj_tf.c -ltensorflow -o $output/bin/obj_tf.x86 &&
+gcc $obj_play/obj_play.c $ffpemglibs -I$output/include -L$output/lib -lSDL2 -lm -lpthread -lz -Wno-error -o $output/bin/player.x86 &&
+gcc $obj_play/obj_tf.c -ltensorflow -o $output/bin/obj_tf.x86 &&
 
 build_ok=true
 
