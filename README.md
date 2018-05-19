@@ -11,7 +11,7 @@ curl -L \
    "https://storage.googleapis.com/tensorflow/libtensorflow/libtensorflow-${TF_TYPE}-${OS}-x86_64-1.6.0.tar.gz" |
    sudo tar -C $TARGET_DIRECTORY -xz
 sudo ldconfig
-```bash
+```
 运行 ./build-rely.sh 编译依赖库(ffmpeg,sdl's api) <br>
 运行 ./build-play.sh 编译项目代码 <br>
 运行 ./export-lib.sh 添加库到环境变量中 <br>
