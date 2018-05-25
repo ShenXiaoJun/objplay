@@ -14,7 +14,9 @@ mkdir $output &&
 mkdir $work &&
 
 #SDL
-echo "SDL build---------------------------------------------------------------------" &&
+echo "---------------------------------------------------------------------------------" &&
+echo "SDL build" &&
+echo "---------------------------------------------------------------------------------" &&
 cp -rf $submodules/SDL2-2.0.8 $work/SDL2-2.0.8 &&
 cd $work/SDL2-2.0.8 &&
 ./autogen.sh &&
@@ -23,15 +25,40 @@ make -j &&
 make install &&
 
 #ffmpeg
-echo "ffmpeg build---------------------------------------------------------------------" &&
+echo "---------------------------------------------------------------------------------" &&
+echo "ffmpeg build" &&
+echo "---------------------------------------------------------------------------------" &&
 cp -rf $submodules/ffmpeg-2.8.14 $work/ffmpeg-2.8.14 &&
 cd $work/ffmpeg-2.8.14 &&
 ./configure --prefix=$output --enable-gpl --enable-nonfree --enable-shared &&
 make -j &&
 make install &&
 
-TF_BINARY_URL="https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-1.0.0-cp27-none-linux_x86_64.whl" &&
-sudo pip install --upgrade $TF_BINARY_URL &&
+#bazel
+#'''
+echo "---------------------------------------------------------------------------------" &&
+echo "bazel build" &&
+echo "---------------------------------------------------------------------------------" &&
+cp -rf $submodules/bazel-0.5.4-dist $work/bazel-0.5.4-dist &&
+cd $work/bazel-0.5.4-dist &&
+./compile.sh &&
+cp ./output/bazel $output/bin/ &&
+export PATH=$PATH:$output/bin/bazel &&
+#'''
+
+#tensorflow
+#'''
+echo "---------------------------------------------------------------------------------" &&
+echo "tensorflow build" &&
+echo "---------------------------------------------------------------------------------" &&
+cp -rf $submodules/tensorflow-r1.4 $work/tensorflow-r1.4 &&
+cd $work/tensorflow-r1.4 &&
+./configure &&
+bazel build -c opt //tensorflow/tools/pip_package:build_pip_package &&
+bazel-bin/tensorflow/tools/pip_package/build_pip_package $output/tensorflow_pkg &&
+#sudo pip install $output/tensorflow_pkg/tensorflow-* &&
+#'''
+
 
 build_ok=true
 #print use time
