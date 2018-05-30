@@ -39,11 +39,13 @@ make install &&
 echo "---------------------------------------------------------------------------------" &&
 echo "bazel build" &&
 echo "---------------------------------------------------------------------------------" &&
-cp -rf $submodules/bazel-0.5.4-dist $work/bazel-0.5.4-dist &&
+#cp -rf $submodules/bazel-0.5.4-dist $work/bazel-0.5.4-dist &&
+mkdir $work/bazel-0.5.4-dist && 
+cp $submodules/bazel-0.5.4-dist.zip $work/bazel-0.5.4-dist &&
 cd $work/bazel-0.5.4-dist &&
+unzip bazel-0.5.4-dist.zip &&
 ./compile.sh &&
-cp ./output/bazel $output/bin/ &&
-export PATH=$PATH:$output/bin/bazel &&
+sudo cp ./output/bazel /usr/local/bin/ &&
 #'''
 
 #tensorflow
@@ -56,7 +58,7 @@ cd $work/tensorflow-r1.4 &&
 ./configure &&
 bazel build -c opt //tensorflow/tools/pip_package:build_pip_package &&
 bazel-bin/tensorflow/tools/pip_package/build_pip_package $output/tensorflow_pkg &&
-#sudo pip install $output/tensorflow_pkg/tensorflow-* &&
+sudo pip install $output/tensorflow_pkg/tensorflow-* &&
 #'''
 
 
