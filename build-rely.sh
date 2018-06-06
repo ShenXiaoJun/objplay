@@ -59,6 +59,11 @@ cd $work/tensorflow-r1.4 &&
 bazel build -c opt //tensorflow/tools/pip_package:build_pip_package &&
 bazel-bin/tensorflow/tools/pip_package/build_pip_package $output/tensorflow_pkg &&
 sudo pip install $output/tensorflow_pkg/tensorflow-* &&
+bazel build -c opt //tensorflow/tools/lib_package:clib &&
+cp bazel-bin/tensorflow/libtensorflow_framework.so $output/lib/ &&
+cp bazel-bin/tensorflow/libtensorflow.so $output/lib/ &&
+mkdir -p ../../output/include/tensorflow/c &&
+cp tensorflow/c/c_api.h ../../output/include/tensorflow/c/c_api.h &&
 #'''
 
 
