@@ -19,8 +19,7 @@ start=$(date +%s)
 build_ok=false
 
 gcc $obj_play/obj_play.c $ffpemglibs -I$output/include -L$output/lib -lSDL2 -lm -lpthread -lz -Wno-error -o $output/bin/player.x86 &&
-#gcc $obj_play/obj_tf.c -ltensorflow -o $output/bin/obj_tf.x86 &&
-gcc $obj_play/obj_tf.c $tflibs -I$output/include -L$output/lib $tflibs -o $output/bin/obj_tf.x86 &&
+#gcc $obj_play/obj_tf.c $tflibs -I$output/include -L$output/lib $tflibs -o $output/bin/obj_tf.x86 &&
 
 build_ok=true
 

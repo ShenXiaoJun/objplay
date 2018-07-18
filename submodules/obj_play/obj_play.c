@@ -78,9 +78,9 @@ struct __obj_av
     AVCodec         *pCodec;  
     AVFrame         *pFrame;
     AVFrame         *pFrameYUV;
-	AVFrame         *pFrameRGB;
+	//AVFrame         *pFrameRGB;
     unsigned char   *out_buffer_yuv;  
-	unsigned char   *out_buffer_rgb;  
+	//unsigned char   *out_buffer_rgb;  
     AVPacket        *packet;
 };
 typedef struct __obj_av _obj_av;
@@ -89,14 +89,8 @@ struct __obj_sdl
 {
     SDL_Window   *screen;   
     SDL_Renderer *sdlRenderer;  
-    SDL_Texture  *sdlTexture_1;  
-    SDL_Texture  *sdlTexture_2;  
-    SDL_Texture  *sdlTexture_3;  
-    SDL_Texture  *sdlTexture_4;  
-    SDL_Rect     sdlRect_1;  
-    SDL_Rect     sdlRect_2;
-    SDL_Rect     sdlRect_3;
-    SDL_Rect     sdlRect_4;
+    SDL_Texture  *sdlTexture;
+    SDL_Rect     sdlRect;
     SDL_Thread   *video_tid;  
     SDL_Event    event;  
 };
@@ -147,18 +141,12 @@ static _obj_av *obj_av_init(const char *filepath){
         goto error;  
     }  
     obj_av->pFrame=av_frame_alloc();  
-    obj_av->pFrameYUV=av_frame_alloc();  
-	if(1)obj_av->pFrameRGB=av_frame_alloc();  
+    obj_av->pFrameYUV=av_frame_alloc();
   
     obj_av->out_buffer_yuv=(unsigned char *)av_malloc(av_image_get_buffer_size(
         AV_PIX_FMT_YUV420P, obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1));  
     av_image_fill_arrays(obj_av->pFrameYUV->data, obj_av->pFrameYUV->linesize,obj_av->out_buffer_yuv,  
-        AV_PIX_FMT_YUV420P,obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1);  
-
-	if(1)obj_av->out_buffer_rgb=(unsigned char *)av_malloc(av_image_get_buffer_size(
-        AV_PIX_FMT_RGB24, obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1));  
-	if(1)av_image_fill_arrays(obj_av->pFrameRGB->data, obj_av->pFrameRGB->linesize,obj_av->out_buffer_rgb,  
-        AV_PIX_FMT_RGB24,obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1);  
+        AV_PIX_FMT_YUV420P,obj_av->pCodecCtx->width, obj_av->pCodecCtx->height,1);   
   
     //Output Info-----------------------------  
     printf("---------------- File Information ---------------\n");  
@@ -177,8 +165,8 @@ static _obj_sdl *obj_sdl_init(_obj_av *obj_av){
         goto error;  
     }   
     //SDL 2.0 Support for multiple windows  
-    screen_w = obj_av->pCodecCtx->width * 2;  
-    screen_h = obj_av->pCodecCtx->height * 2;  
+    screen_w = obj_av->pCodecCtx->width;
+    screen_h = obj_av->pCodecCtx->height;
     obj_sdl->screen = SDL_CreateWindow("Simplest ffmpeg player's Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,  
         screen_w, screen_h,SDL_WINDOW_OPENGL);  
   
@@ -189,34 +177,13 @@ static _obj_sdl *obj_sdl_init(_obj_av *obj_av){
     obj_sdl->sdlRenderer = SDL_CreateRenderer(obj_sdl->screen, -1, 0);    
     //IYUV: Y + U + V  (3 planes)  
     //YV12: Y + V + U  (3 planes)  
-    obj_sdl->sdlTexture_1 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
-        obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
-    obj_sdl->sdlTexture_2 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING,
-        obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
-	obj_sdl->sdlTexture_3 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
-        obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
-	obj_sdl->sdlTexture_4 = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
-        obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);    
+    obj_sdl->sdlTexture = SDL_CreateTexture(obj_sdl->sdlRenderer, SDL_PIXELFORMAT_IYUV, SDL_TEXTUREACCESS_STREAMING,
+        obj_av->pCodecCtx->width,obj_av->pCodecCtx->height);
   
-    obj_sdl->sdlRect_1.x=0;  
-    obj_sdl->sdlRect_1.y=0;  
-    obj_sdl->sdlRect_1.w=obj_av->pCodecCtx->width;  
-    obj_sdl->sdlRect_1.h=obj_av->pCodecCtx->height;  
-
-    obj_sdl->sdlRect_2.x=obj_av->pCodecCtx->width;  
-    obj_sdl->sdlRect_2.y=0;  
-    obj_sdl->sdlRect_2.w=obj_av->pCodecCtx->width;  
-    obj_sdl->sdlRect_2.h=obj_av->pCodecCtx->height;
-
-	obj_sdl->sdlRect_3.x=0;  
-    obj_sdl->sdlRect_3.y=obj_av->pCodecCtx->height;  
-    obj_sdl->sdlRect_3.w=obj_av->pCodecCtx->width;  
-    obj_sdl->sdlRect_3.h=obj_av->pCodecCtx->height;
-
-	obj_sdl->sdlRect_4.x=obj_av->pCodecCtx->width;  
-    obj_sdl->sdlRect_4.y=obj_av->pCodecCtx->height;  
-    obj_sdl->sdlRect_4.w=obj_av->pCodecCtx->width;  
-    obj_sdl->sdlRect_4.h=obj_av->pCodecCtx->height;
+    obj_sdl->sdlRect.x=0;  
+    obj_sdl->sdlRect.y=0;  
+    obj_sdl->sdlRect.w=obj_av->pCodecCtx->width;  
+    obj_sdl->sdlRect.h=obj_av->pCodecCtx->height;
   
     obj_av->packet=(AVPacket *)av_malloc(sizeof(AVPacket));  
   
@@ -233,10 +200,8 @@ int main(int argc, char* argv[])
     _obj_av *obj_av=NULL;
 	
     struct SwsContext *img_convert_ctx_yuv420p; 
-	struct SwsContext *img_convert_ctx_rgb24;
     //------------SDL---------------- 
 	_obj_sdl *obj_sdl=NULL;
-	FILE *outputfile=fopen("/home/shenxj/out.rgb","wb+");
     char filepath[256]={0};
 
 	if(argc <= 1)
@@ -251,8 +216,6 @@ int main(int argc, char* argv[])
 	printf("%s,%d,src_pix_fmt:%d\n",__func__,__LINE__,obj_av->pCodecCtx->pix_fmt);
     img_convert_ctx_yuv420p = sws_getContext(obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, obj_av->pCodecCtx->pix_fmt,   
         obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
-	img_convert_ctx_rgb24 = sws_getContext(obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, obj_av->pCodecCtx->pix_fmt,   
-        obj_av->pCodecCtx->width, obj_av->pCodecCtx->height, AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
 	
     //------------SDL End------------  
     //Event Loop        
@@ -275,22 +238,13 @@ int main(int argc, char* argv[])
             if(got_picture){  
                 sws_scale(img_convert_ctx_yuv420p, (const unsigned char* const*)obj_av->pFrame->data, 
 					obj_av->pFrame->linesize, 0, obj_av->pCodecCtx->height, obj_av->pFrameYUV->data, obj_av->pFrameYUV->linesize);  
-				if(0)sws_scale(img_convert_ctx_rgb24, (const unsigned char* const*)obj_av->pFrame->data, 
-					obj_av->pFrame->linesize, 0, obj_av->pCodecCtx->height, obj_av->pFrameRGB->data, obj_av->pFrameRGB->linesize);  
                 //SDL---------------------------  
-                SDL_UpdateTexture( obj_sdl->sdlTexture_1, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
-                SDL_UpdateTexture( obj_sdl->sdlTexture_2, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
-				//SDL_UpdateTexture( obj_sdl->sdlTexture_3, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
-				//SDL_UpdateTexture( obj_sdl->sdlTexture_4, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );    
+                SDL_UpdateTexture( obj_sdl->sdlTexture, NULL, obj_av->pFrameYUV->data[0], obj_av->pFrameYUV->linesize[0] );   
                 
                 SDL_RenderClear( obj_sdl->sdlRenderer );    
-                SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_1, NULL, &obj_sdl->sdlRect_1 );    
-				fwrite( obj_av->pFrameRGB->data[0],(obj_av->pCodecCtx->width)*(obj_av->pCodecCtx->height)*3,1,outputfile);
-                //SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_2, NULL, &obj_sdl->sdlRect_2 );    
-                //SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_3, NULL, &obj_sdl->sdlRect_3 );    
-                //SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture_4, NULL, &obj_sdl->sdlRect_4 );    
-                //SDL_RenderCopy( sdlRenderer, sdlTexture, NULL, NULL);   
-                SDL_RenderPresent( obj_sdl->sdlRenderer );    
+                SDL_RenderCopy( obj_sdl->sdlRenderer, obj_sdl->sdlTexture, NULL, &obj_sdl->sdlRect );
+                //SDL_RenderCopy( sdlRenderer, sdlTexture, NULL, NULL);
+                SDL_RenderPresent( obj_sdl->sdlRenderer );
                 //SDL End-----------------------  
             }  
             av_free_packet(obj_av->packet);  
@@ -308,12 +262,10 @@ int main(int argc, char* argv[])
     }  
   
     sws_freeContext(img_convert_ctx_yuv420p);  
-	if(1)sws_freeContext(img_convert_ctx_rgb24);  
   
     SDL_Quit();  
     //--------------  
     av_frame_free(&obj_av->pFrameYUV);  
-	if(1)av_frame_free(&obj_av->pFrameRGB);  
     av_frame_free(&obj_av->pFrame);  
     avcodec_close(obj_av->pCodecCtx);  
     avformat_close_input(&obj_av->pFormatCtx);  

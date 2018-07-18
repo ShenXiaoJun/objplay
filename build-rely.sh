@@ -35,36 +35,33 @@ make -j &&
 make install &&
 
 #bazel
-#'''
-echo "---------------------------------------------------------------------------------" &&
-echo "bazel build" &&
-echo "---------------------------------------------------------------------------------" &&
-#cp -rf $submodules/bazel-0.5.4-dist $work/bazel-0.5.4-dist &&
-mkdir $work/bazel-0.5.4-dist && 
-cp $submodules/bazel-0.5.4-dist.zip $work/bazel-0.5.4-dist &&
-cd $work/bazel-0.5.4-dist &&
-unzip bazel-0.5.4-dist.zip &&
-./compile.sh &&
-sudo cp ./output/bazel /usr/local/bin/ &&
-#'''
+#echo "-----------------------------------------------------------------------" &&
+#echo "bazel build" &&
+#echo "-----------------------------------------------------------------------" &&
+##cp -rf $submodules/bazel-0.5.4-dist $work/bazel-0.5.4-dist &&
+#mkdir $work/bazel-0.5.4-dist && 
+#cp $submodules/bazel-0.5.4-dist.zip $work/bazel-0.5.4-dist &&
+#cd $work/bazel-0.5.4-dist &&
+#unzip bazel-0.5.4-dist.zip &&
+#./compile.sh &&
+#sudo cp ./output/bazel /usr/local/bin/ &&
+
 
 #tensorflow
-#'''
-echo "---------------------------------------------------------------------------------" &&
-echo "tensorflow build" &&
-echo "---------------------------------------------------------------------------------" &&
-cp -rf $submodules/tensorflow-r1.4 $work/tensorflow-r1.4 &&
-cd $work/tensorflow-r1.4 &&
-./configure &&
-bazel build -c opt //tensorflow/tools/pip_package:build_pip_package &&
-bazel-bin/tensorflow/tools/pip_package/build_pip_package $output/tensorflow_pkg &&
-sudo pip install $output/tensorflow_pkg/tensorflow-* &&
-bazel build -c opt //tensorflow/tools/lib_package:clib &&
-cp bazel-bin/tensorflow/libtensorflow_framework.so $output/lib/ &&
-cp bazel-bin/tensorflow/libtensorflow.so $output/lib/ &&
-mkdir -p ../../output/include/tensorflow/c &&
-cp tensorflow/c/c_api.h ../../output/include/tensorflow/c/c_api.h &&
-#'''
+#echo "-----------------------------------------------------------------------" &&
+#echo "tensorflow build" &&
+#echo "-----------------------------------------------------------------------" &&
+#cp -rf $submodules/tensorflow-r1.4 $work/tensorflow-r1.4 &&
+#cd $work/tensorflow-r1.4 &&
+#./configure &&
+#bazel build -c opt //tensorflow/tools/pip_package:build_pip_package &&
+#bazel-bin/tensorflow/tools/pip_package/build_pip_package $output/tensorflow_pkg &&
+#sudo pip install $output/tensorflow_pkg/tensorflow-* &&
+#bazel build -c opt //tensorflow/tools/lib_package:clib &&
+#cp bazel-bin/tensorflow/libtensorflow_framework.so $output/lib/ &&
+#cp bazel-bin/tensorflow/libtensorflow.so $output/lib/ &&
+#mkdir -p ../../output/include/tensorflow/c &&
+#cp tensorflow/c/c_api.h ../../output/include/tensorflow/c/c_api.h &&
 
 
 build_ok=true
